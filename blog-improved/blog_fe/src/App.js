@@ -1,42 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { Blog, CreateBlogForm } from './components/Blog'
+import './App.css'
+import React, { useEffect, useRef } from 'react'
+import { Table } from 'react-bootstrap'
+import { useDispatch, useSelector } from 'react-redux'
+import { Route, Switch, useHistory } from 'react-router-dom'
+import { Blog, BlogView, CreateBlogForm } from './components/Blog'
 import LoginForm from './components/LoginForm'
+import NavBar from './components/NavBar'
 import Notification from './components/Notification'
 import Togglable from './components/Togglable'
-import blogService from './services/blogs'
+import UsersView from './components/UsersView'
+import UserView from './components/UserView'
+import {initBlogs} from './reducers/blogReducer'
+import { logoutUser, setUserFromLocalStorage } from './reducers/userReducer'
 
 const App = () => {
-  const [blogs, setBlogs] = useState([])
-  const [user, setUser] = useState(null)
+  const dispatch = useDispatch()
+  const history = useHistory()
+  const blogs = useSelector(state => state.blogs)
+  const user = useSelector(state => state.user)
 
   const blogFormRef = useRef()
 
   useEffect(() => {
     if(user){
-      const retrieveBlogs = async () => {
-        const blogs = await blogService.getAll()
-        setBlogs(blogs)
-      }
-      retrieveBlogs()
+      dispatch(initBlogs())
     }
-  }, [ user ])
+  }, [user, dispatch])
 
   useEffect(() => {
-    const loggeduserJSON = window.localStorage.getItem('user')
-    if(loggeduserJSON){
-      const user = JSON.parse(loggeduserJSON)
-      setUser(user)
-    }
+    dispatch(setUserFromLocalStorage())
   }, [])
-
-  const handleLogOut = () => {
-    window.localStorage.removeItem('user')
-    setUser(null)
-  }
-
-  const removeBlogFromList = removedBlogId => setBlogs(
-    blogs.filter(blog => blog.id !== removedBlogId)
-  )
 
   const blogForm = () => (
     <Togglable
@@ -44,50 +37,56 @@ const App = () => {
       buttonLabelClose='cancel'
       ref={blogFormRef}>
       <CreateBlogForm
-        updateBlogList= {(blog) => {
-          blogFormRef.current.toggleVisible()
-          setBlogs(blogs.concat(blog))
-        }
-        }
+        blogFormRef={blogFormRef}
       />
     </Togglable>
   )
 
   return (
-    <div>
-      <Notification/>
-      {user === null &&
-        <LoginForm
-          handleUser={(userDetails) => setUser(userDetails)}
-        />
-      }
-
-      {user && (
-        <>
-          <h2>blogs</h2>
-          <p>{user.name} logged in <button onClick={handleLogOut}>logout</button></p>
-          {blogForm()}
-          {blogs
-            .sort((fBlog, sBlog) => sBlog.likes - fBlog.likes)
-            .map(blog =>
-              <Blog
-                key={blog.id}
-                blog={blog}
-                user={user}
-                updateBlogHandle={(updatedBlog) => setBlogs(
-                  blogs.map(blog => {
-                    if(blog.id === updatedBlog.id){
-                      blog.likes += 1
-                      return blog
-                    }
-                    return blog
-                  })
+    <div className='container'>
+      <NavBar/>
+      <Notification />
+      
+      <Switch>
+        <Route path='/login'>
+          <LoginForm/>
+        </Route>
+        <Route path='/users/:id'>
+          <UserView/>
+        </Route>
+        <Route path='/users'>
+          <UsersView/>
+        </Route>
+        <Route path='/blogs/:id'>
+          <BlogView/>
+        </Route>
+        <Route path='/blogs'>
+          {!user ? <LoginForm /> :
+          <>
+            <h2>blogs</h2>
+            {blogForm()}
+            <Table striped>
+              <tbody>
+                {blogs
+                  .sort((fBlog, sBlog) => sBlog.likes - fBlog.likes)
+                  .map(blog =>
+                    <Blog
+                      key={blog.id}
+                      blog={blog}
+                      user={user}
+                    />
                 )}
-                removeBlogHandle={removeBlogFromList}
-              />
-            )}
-        </>
-      )}
+              </tbody>
+            </Table>
+          </>
+          }
+          
+        </Route>
+        <Route path='/'>
+          <h1>Welcome to Blog App {user && user.name}</h1>
+          {!user && <button onClick={() => history.push('/login')}>login</button>}
+        </Route>
+      </Switch>
     </div>
   )
 }

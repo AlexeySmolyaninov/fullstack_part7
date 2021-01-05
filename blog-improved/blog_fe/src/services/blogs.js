@@ -4,8 +4,13 @@ import { getToken } from '../utils/localstorage'
 const baseUrl = '/api/blogs'
 
 const getAll = () => {
-  const request = axios.get(baseUrl)
-  return request.then(response => response.data)
+  const response = axios.get(baseUrl)
+  return response.then(response => response.data)
+}
+
+const getOne = async (id) => {
+  const response = await axios.get(`${baseUrl}/${id}`)
+  return response.data
 }
 
 const createBlog = async (blog) => {
@@ -38,4 +43,4 @@ const updateBlog = async (blog) => {
   return response.data
 }
 
-export default { getAll, createBlog, deleteBlog, updateBlog }
+export default { getAll, getOne, createBlog, deleteBlog, updateBlog }

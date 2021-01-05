@@ -1,51 +1,65 @@
-import React, { useState } from 'react'
-import { useDispatch } from 'react-redux'
+import React, { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { setNotification } from '../reducers/notificationReducer'
+import { createBlog, deleteBlog, likeBlog } from '../reducers/blogReducer'
 import blogService from '../services/blogs'
-import {setNotification} from '../reducers/notificationReducer'
+import { Redirect, useHistory, useLocation, useParams } from 'react-router-dom'
+import { Button, Form } from 'react-bootstrap'
 
-export const BlogExtraDetails = ({
-  blog,
-  user,
-  removeBlogHandle,
-  handleLikeFunc
-}) => {
+export const BlogView = () => {
+  const dispatch = useDispatch()
+  const history = useHistory()
+  const user = useSelector(state => state.user)
+  const id = useParams().id
+  const [ blog, setBlog ] = useState(null)
 
-  const handleRemoveBlog = async () => {
+  useEffect(() => {
+    const getBlog = async () => {
+      const blog = await blogService.getOne(id)
+      setBlog(blog)
+    }
+    getBlog()
+  }, [])
+
+  const handleRemoveBlog = () => {
     if(window.confirm(`Remove blog ${blog.title} by ${blog.author}`)){
-      const statusCode = await blogService.deleteBlog(blog.id)
-      if(statusCode === 200) {
-        removeBlogHandle(blog.id)
-      }
+      dispatch(deleteBlog(blog.id))
+      history.push('/blogs')
     }
   }
 
-  return (
-    <div className='blog-extra-details'>
-      <p>{blog.url}</p>
-      <p className='likes'>{blog.likes}
-        <button
-          id='like-btn'
-          onClick={handleLikeFunc}>
-          like
-        </button>
-      </p>
-      <p>{blog.author}</p>
-      {user.username === blog.user.username &&
-        <button onClick={handleRemoveBlog}>remove</button>
-      }
-    </div>
+  if(!blog){
+    return null
+  }
+
+  return(
+    <>
+      {blog && (
+        <div>
+          <h1>{blog.title}</h1>
+          <a target='_bank' href={blog.url}>{blog.url}</a>
+          <p>
+            {blog.likes} likes
+            <button
+              id='like-btn'
+              onClick={() =>dispatch(likeBlog(blog))}>
+              like
+            </button>
+          </p>
+          <p>added by {blog.author}</p>
+          {user.username === blog.user.username &&
+            <button onClick={handleRemoveBlog}>remove</button>
+          }
+        </div>
+      )}
+    </>
   )
 }
-export const Blog = ({ blog, user, updateBlogHandle, removeBlogHandle }) => {
+
+export const Blog = ({ blog, user }) => {
+  const location = useLocation()
   const [showExtraDetails, setShowExtraDetails] = useState(false)
   const [buttonLabel, setButtonLabel] = useState('view')
-  const blogStyle = {
-    paddingTop: 10,
-    paddingLeft: 2,
-    border: 'solid',
-    borderWidth: 1,
-    marginBottom: 5
-  }
 
   const buttonFunc = () => {
     if(!showExtraDetails) {
@@ -56,33 +70,16 @@ export const Blog = ({ blog, user, updateBlogHandle, removeBlogHandle }) => {
     setShowExtraDetails(false)
     setButtonLabel('view')
   }
-
-  const handleLikeFunc = async () => {
-    const updateBlog = await blogService.updateBlog({
-      id: blog.id,
-      likes: blog.likes + 1
-    })
-    updateBlogHandle(updateBlog)
-  }
-
+  
   return (
-    <div style={blogStyle} className='blog'>
-      {blog.title} {blog.author}
-      <button onClick={buttonFunc}>{buttonLabel}</button>
-      {showExtraDetails &&
-        <BlogExtraDetails
-          blog={blog}
-          user={user}
-          updateBlogHandle={updateBlogHandle}
-          removeBlogHandle={removeBlogHandle}
-          handleLikeFunc={handleLikeFunc}
-        />}
-    </div>
+    <tr className='blog'>
+      <td><a href={`${location.pathname}/${blog.id}`}>{blog.title} {blog.author}</a></td>
+    </tr>
   )
 }
 
 export const CreateBlogForm = ({
-  updateBlogList
+  blogFormRef
 }) => {
   const dispatch = useDispatch()
 
@@ -93,14 +90,10 @@ export const CreateBlogForm = ({
   const handleCreateBlog = async (event) => {
     event.preventDefault()
     try{
-      const blog = await blogService.createBlog({
-        title,
-        author,
-        url
-      })
-      updateBlogList(blog)
+      blogFormRef.current.toggleVisible()
+      dispatch(createBlog(title, author, url))
       dispatch(setNotification(
-        `A new blog ${blog.title} by ${blog.author} added`,
+        `A new blog ${title} by ${author} added`,
         false,
         3
       ))
@@ -122,38 +115,34 @@ export const CreateBlogForm = ({
   return (
     <div>
       <h2>Create new Blog</h2>
-      <form
+      <Form
         id='blog-form'
         onSubmit={ handleCreateBlog }>
-        <div>
-          <label>title:</label>
-          <input
+        <Form.Group>
+          <Form.Label>title:</Form.Label>
+          <Form.Control
             id='blog-title'
             type='text'
             onChange={({ target }) => setTitle(target.value)}
             value={title}
           />
-        </div>
-        <div>
-          <label>author:</label>
-          <input
+          <Form.Label>author:</Form.Label>
+          <Form.Control
             id='blog-author'
             type='text'
             onChange={({ target }) => setAuthor(target.value)}
             value={ author }
           />
-        </div>
-        <div>
-          <label>url:</label>
-          <input
+          <Form.Label>url:</Form.Label>
+          <Form.Control
             id='blog-url'
             type='text'
             onChange={({ target }) => setUrl(target.value)}
             value={url}
           />
-        </div>
-        <button type='submit'>create</button>
-      </form>
+        </Form.Group>
+        <Button variant='primary' type='submit'>create</Button>
+      </Form>
     </div>
   )
 }

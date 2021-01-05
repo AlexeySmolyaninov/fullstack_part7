@@ -13,6 +13,16 @@ blogRouter.get('/', async (request, response) => {
   response.json(blogs)
 })
 
+blogRouter.get('/:id', async (request, response) => {
+  const id = request.params.id;
+  const blog = await Blog.findById(id)
+    .populate('user', {username: 1, name: 1})
+  if(blog){
+    return response.json(blog)
+  }
+  response.status(404).end()
+})
+
 blogRouter.post('/', async (request, response) => {
   const body = request.body
   const decodedToken = jwt.verify(request.token, SECRET)
@@ -37,7 +47,7 @@ blogRouter.post('/', async (request, response) => {
   const savedBlog = await new Blog(newBlog).save()
   user.blogs = user.blogs.concat(savedBlog._id)
   await user.save()
-  const savedBlogWithUser = await Blog.populate(savedBlog, { path: 'user', select:'username' })
+  const savedBlogWithUser = await Blog.populate(savedBlog, { path: 'user', select:'username name' })
   response.status(201).json(savedBlogWithUser)
 })
 
